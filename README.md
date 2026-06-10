@@ -1,6 +1,6 @@
-## BMB ISEC 2024
+## shape-constrained models
 
-* stuff for 2024 ISEC talk ...
+Stuff for fitting shape-constrained models as components of (semi)mechanistic models; export bases and penalty matrices from `scam`/`mgcv` (or construct ourselves if necessary); fit in RTMB/tmbstan/(Stan? NIMBLE?)
 
 ## files
 
