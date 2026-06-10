@@ -4,9 +4,10 @@ title: "to do"
 
 @koslikFlexible2025 ([PDF](https://arxiv.org/pdf/2511.17071)) suggest using the smooth approximation 
 
-\[
+$$
 F(x, \rho) = -\textrm{min}(x, 0) \approx \frac{1}{\rho} \log\left[1+\exp(-\rho x)\right],
-\]
+$$
+
 "where the hyperparameter $\rho$ controls the smoothness of the approximation. (They suggest $\rho = 20$ as a reasonable value. $F(-x, \rho)$ is a smooth max function (approx. [ReLU](https://en.wikipedia.org/wiki/Rectified_linear_unit)). According to Wikipedia, this is the scaled [softplus](https://en.wikipedia.org/wiki/Softplus) function.
 
 Export basis and penalty matrices from `scam`; figure out which parameters need to be (soft) constrained to be positive/negative; transform these variables via $b' = \textrm{softplus}(b)$ before including them in the likelihood (and penalty matrix). Does this work??
