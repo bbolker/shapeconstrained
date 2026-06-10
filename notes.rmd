@@ -1,0 +1,47 @@
+---
+title: "constraint notes"
+bibliography: "isec2024.bib"
+header-includes:
+- \usepackage{amsmath}
+- \usepackage{amssymbol}
+- \newcommand{\x}{\boldsymbol x}
+- \newcommand{\y}{\boldsymbol y}
+- \newcommand{\X}{\boldsymbol X}
+- \newcommand{\D}{\boldsymbol D}
+- \newcommand{\Z}{\boldsymbol Z}
+- \newcommand{\bbeta}{\boldsymbol \beta}
+- \newcommand{\bb}{\boldsymbol b}
+- \newcommand{\bu}{\boldsymbol u}
+- \newcommand{\bLambda}{\boldsymbol \Lambda}
+- \newcommand{\bEta}{\boldsymbol \eta}
+- \newcommand{\btheta}{\boldsymbol \theta}
+- \newcommand{\bzero}{\boldsymbol 0}
+---
+
+
+The basic references are @pyaShape2015 and @woodStable2004 (appendix A).
+
+@pyaShape2015 explain how to set up a monotonic spline by modifying the model matrix $\X$ and constraining the parameters of spline: if $\x_i$ are the elements (column vector) of a P-spline basis, and 
+
+\[
+\y = b_0 + \beta_1 \x_1 + (\beta_1 + \beta_2) \x_2 + \ldots + \sum_{i=1}^j \beta_i \x_j
+\]
+with all $\beta_i > 0$, this is a monotone increasing function.
+
+We can make this change by multiplying the original $\X$ matrix by $\D$, an upper triangular matrix full of 1s: $\X' = \X \D$.
+
+We can impose the positivity (non-negativity?) constraint on the $\beta$ values via a log-link function (fitting $\beta' = \exp(\beta)$) *or* by imposing a box constraint at 0.
+
+We also have a penalty term $\lambda \beta' S \beta'^\top$. However, $S$ is normally rank-deficient. This is no problem if we are 
+
+```r
+options(digits=3)
+dd <- data.frame(x=1:100)
+library(scam)
+s <- smoothCon(s(x, bs = "mpd"), data = dd)[[1]]
+SS <- s$S[[1]]
+eigen(SS)$value
+Matrix::rankMatrix(SS)
+```
+
+## references

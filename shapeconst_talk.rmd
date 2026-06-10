@@ -1,0 +1,317 @@
+---
+title: "Shape-constrained models for functional responses"
+author: Ben Bolker
+date: 16 July 2024
+bibliography: isec2024.bib
+csl: reflist2.csl
+output:
+  ioslides_presentation
+citation-package: biblatex
+header-includes:
+- \usepackage[authordate, backend=biber]{biblatex-chicago}
+- \usepackage{amsmath}
+- \usepackage{amssymbol}
+- \newcommand{\y}{\boldsymbol y}
+- \newcommand{\X}{\boldsymbol X}
+- \newcommand{\Z}{\boldsymbol Z}
+- \newcommand{\bbeta}{\boldsymbol \beta}
+- \newcommand{\bb}{\boldsymbol b}
+- \newcommand{\bu}{\boldsymbol u}
+- \newcommand{\bLambda}{\boldsymbol \Lambda}
+- \newcommand{\bEta}{\boldsymbol \eta}
+- \newcommand{\btheta}{\boldsymbol \theta}
+- \newcommand{\bzero}{\boldsymbol 0}
+---
+
+<!-- https://stackoverflow.com/questions/30900006/r-markdonw-ioslides-title-page-format-changes -->
+
+<style>
+.refs {
+   font-size: 14px;
+}
+h2 { 
+ color: #3399ff;		
+}
+h3 { 
+ color: #3399ff;		
+}
+.title-slide {
+   background-color: #55bbff;
+}
+
+.pre {
+  height: 30pc;
+  overflow-y: scroll;
+}
+
+<!-- https://stackoverflow.com/questions/50378349/force-column-break-in-rmarkdown-ioslides-columns-2-layout -->
+.forceBreak { -webkit-column-break-after: always; break-after: column; }
+</style>
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, dpi = 200, optipng = knitr::hook_optipng, fig.align = "center")
+options(bitmapType = "cairo")
+```
+
+```{r pkgs, message = FALSE}
+library(knitr)
+library(ggplot2); theme_set(theme_bw(base_size=16))
+library(scam)
+library(mgcv)
+library(tidyverse)
+```
+
+## modeling tradeoffs
+
+@levinsStrategy1966: modelers face a tradeoff among **realism**, **precision**, and **generality**
+
+* realism and precision  
+[engineering: **tactical** models]
+* precision and generality  
+[physics: "spherical cow", e.g. Lotka-Volterra model]
+* realism and generality  
+[math: qualitative models,  
+e.g. "$f(x)$ is monotonically increasing"]
+
+see also @aday1978
+
+<!-- https://tex.stackexchange.com/questions/544666/how-to-cite-a-song-in-a-bib-file -->
+<!-- https://tex.stackexchange.com/questions/449191/using-biblatex-with-r-markdown -->
+
+## parametric models
+
+:::: {style="display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 50px;"}
+
+::: {}
+
+- precise, more realistic, less general
+- interpretable/testable parameters
+- often have to select among many options
+- induce specific (implicit) assumptions about curve shape
+
+```{r, eval = FALSE}
+par(mfrow=c(1,2), las = 1, bty = "l")
+gengauss <- function(x, mu=0, alpha=1, beta = 2) {
+    beta/(2*alpha*gamma(1/beta))*exp(-(abs(x-mu)/alpha)^beta)
+}
+betavec <- c(0.5, 1, 2, 4, 8)
+xvec <- seq(-3, 3, length.out = 101)
+gmat <- sapply(betavec, \(b) gengauss(xvec, beta = b))
+matplot(gmat, type = "l", lty = 1, ann = FALSE, axes = FALSE); box()
+tvec <- c(1, 2, 10, 20, 100)
+tmat <- sapply(tvec, \(t) dt(xvec, df = t))
+matplot(tmat, type = "l", lty = 1, ann = FALSE, axes = FALSE); box()
+```
+
+:::
+
+::: {}
+
+@quinnQuantitative1999
+
+```{r param-models, out.width=350}
+knitr::include_graphics("pix/quinnderiso.png")
+```
+
+:::
+
+::::
+
+## non/semiparametric models
+
+gain precision without sacrificing realism and generality (?)
+
+* **generalized additive models**
+   * increase generality ("$f(x)$ is a smooth function")
+   * generally *phenomenological*
+   * harder to interpret
+* **semi-mechanistic models**
+   * aka "partially specified", "semi-parametric"
+   * combine known structure with flexible curves
+   * @ellnerNoise1998b, @woodPartially2001, @nelsonCapturing2004, @thorsonBayesian2014b
+
+## shape-constrained models
+
+* more specific/stronger constraints than "$f(x)$ is smooth"
+* e.g. $f(x)$ is monotonic, unimodal, convex, concave ...
+* e.g. @ramsayEstimating1998 (monotone), @munchBayesian2005, @andersenBayesian2017, @kollmannUnimodal2014
+* but especially @pyaShape2015 
+
+## shape-constrained bases
+
+```{r bases, echo = FALSE, out.width = "100%"}
+set.seed(101)
+dd <- data.frame(x=seq(-5, 5, length = 101))
+dd <- within(dd, {
+             mu <- 1 + x - x^3/4
+             y <- rnorm(length(mu), mu, sd = 1)
+             })
+sm0 <- smoothCon(s(x, bs = "tp"), data = dd, absorb.cons = TRUE)[[1]]
+sm1 <- smoothCon(s(x, bs = "mpd"), data = dd, absorb.cons = TRUE)[[1]]
+sm2 <- smoothCon(s(x, bs = "ps"), data = dd, absorb.cons = TRUE)[[1]]
+colvec <- palette.colors(n=8)
+pfun <- function(x, main) {
+    matplot(x, type = "l", main = main, col = colvec, ylab = "", xlab = "",
+            lwd = 2)
+}
+par(mfrow=c(1,2), las = 1, bty = "l")
+pfun(sm2$X, "P-spline")
+pfun(sm1$X, "Monotonic p-spline")
+```
+
+## reed frog predation [@voneshCompensatory2005]
+
+* data + Holling type 2 fit
+
+```{r get_rf}
+L <- load("reedfrog_stuff.rda")
+```
+
+```{r rf-raw, out.width = "70%", fig.align = "center"}
+pf <- (pred_frame
+    |> filter(model == "mle2_holling")
+    |> mutate(across(c(prob, lwr, upr), ~. * Initial))
+)
+ggplot(pf, aes(x = Initial)) +
+    geom_line(aes(y = prob)) +
+    geom_ribbon(aes(ymin = lwr, ymax = upr), colour = NA, fill = "black", alpha = 0.3) +
+    expand_limits(y=0) +
+    geom_point(data=dd, aes(y = Killed, size = Killed), alpha = 0.5) +
+    labs(y = "Number predated")
+```
+
+## model fits to *per capita* pred
+
+```{r fit-plot, out.width = "100%"}
+pf <- pred_frame |> filter(model != "RTMB_mpd")
+pred_plot <- function(var, data = pred_frame) {
+    var <- enquo(var)
+    gg0 <- ggplot(data, aes(Initial, prob)) +
+        geom_line(aes(colour = !!var)) +
+        geom_ribbon(aes(ymin = lwr, ymax = upr, fill = !!var), colour = NA, alpha = 0.5) +
+        expand_limits(y=0) +
+        geom_point(data=dd, aes(y = Killed/Initial, size = Killed), alpha = 0.5) +
+        facet_wrap(vars(!!var)) +
+        labs(x = "Initial density", y = "Predation probability") +
+        theme(legend.position = "none") +
+        theme(panel.spacing = grid::unit(0.25, "lines"))
+    return(gg0)
+}
+pred_plot(model, pf)
+```
+
+## goodness of fit
+
+```{r aictab1}
+rf2 <- rename(rf_aictab, ΔAIC = "AIC", Δnll = "nll")
+pander::pander(rf2, digits = 2, justify = "lccc", keep.trailing.zeros = TRUE)
+```
+
+## size/density interactions
+
+*  @mccoyPredicting2011:  
+dragonfly nymphs vs. red-eyed treefrog tadpoles
+
+```{r odo-0, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_0.png")
+```
+
+## mechanistic fit
+
+predation prob = $a(s)/(1+a(s) h(s) x)$  
+$a(s)$ = Ricker, $h(s) = cs$
+
+```{r odo-param, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_param.png")
+```
+
+## GAM fit
+
+`mgcv::gam()`  
+with `s(size, initial, bs = "te")`
+
+```{r odo-gam, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_gam.png")
+```
+
+## shape-constrained fit
+
+`scam::scam()`  
+with `bs = "tedecv"` (decreasing × concave)
+
+```{r odo-scam, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_scam.png")
+```
+
+## shape-constrained fit (RTMB)
+
+`RTMB`  
+same basis/penalty as `scam`
+
+```{r odo-RTMB, out.width="60%", fig.align = "center"}
+knitr::include_graphics("pix/odo_plotly_RTMB_tecdv.png")
+```
+
+## goodness of fit
+
+```{r odo-aic}
+L <- load("odo_stuff.rda")
+pander::pander(odo_aictab, digits = c(2, 2, 3, 2), justify = "lccc", keep.trailing.zeros = TRUE)
+```
+
+## conclusions
+
+* Acknowledgements
+    * "shoulders of giants" (Wood [`mgcv`], Pya [`scam`], Kristensen [`RTMB`])
+	* data providers (Mike McCoy, James Vonesh)
+	* $$ (NSERC Discovery)
+* Source: https://github.com/bbolker/isec2024
+* Future goals
+    * shape-constrained smooths as 'plug and play' components of more complex models
+    * fix `scam` bugs/robustify `RTMB` fitting
+    * more constraint options (e.g. unimodal functions)
+    * hypothesis testing ...
+
+<!-- https://bookdown.org/yihui/rmarkdown-cookbook/multi-column.html -->
+
+<!--
+:::: {style="display: grid; grid-template-columns: 1fr 1fr; grid-column-gap: 50px;"}
+
+::: {}
+
+:::
+
+::: {}
+
+```{r, out.width=300, out.height=300}
+## knitr::include_graphics("pix/dependency_2x.png")
+```
+
+:::
+
+::::
+-->
+
+<!-- https://stackoverflow.com/questions/28815781/how-to-move-the-bibliography-in-markdown-pandoc/44546963#44546963 -->
+
+## references {#refs .refs .columns-2 .pre}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,26 @@
+
+* Can we include print statements?
+* Does matrix/vector indexing work? (Haven't tried)
+* Why `nlminb` ?
+* predict with new data?
+* fit models with new data (other than with a closure)?
+* watch out for internal state (when in doubt, rebuild objects)
+* (complete) list of what is allowed/available?
+
+* try out mvgauss with matrices
+* try out mapping?
+* make `MakeADFun` less noisy? (`silent`)
+
+
+Slides
+
+* Griewank et al AD magic? (obj + grad < 5*obj) "cheap gradient principle"
+* why log-scale of SD in lin reg example?
+* use `with()` tricks at all?
+* opaleye = Girella nigricans?
+* `%~%` shortcut? `getAll()` shortcut?
+* neg binom == random effect is a little bit of a stretch
+* red/green colorblindness, e.g. uncertainty fig 1?
+* question in slide 7/22 of uncertainty
+* slide 18/22 of uncertainty: priors whisked over?
+* not sure why we have blank slides 19 and 20 under uncertainty?
